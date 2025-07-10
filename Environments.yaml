@@ -1,0 +1,36 @@
+name: myenv
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - accelerate
+  - beautifulsoup4
+  - black
+  - bitsandbytes
+  - huggingface_hub
+  - langchain
+  - langchain-community
+  - langchain-huggingface
+  - lightning
+  - matplotlib
+  - numpy
+  - scikit-learn
+  - seaborn
+  - scipy
+  - spacy
+  - opencv
+  - onnx
+  - pandas
+  - peft
+  - pip
+  - plotly
+  - python>=3.10
+  - sentencepiece
+  - transformers
+  - pip:
+    - duckduckgo-search
+    - jupyter
+    - trl>=0.19.0
+    - torch  # nvidia 4060 needs cuda 11.8 and 570 open
+    - torchvision
+    - torchaudio
