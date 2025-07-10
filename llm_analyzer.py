@@ -96,7 +96,7 @@ class LLMAnalyzer:
             c_ncl = current_df.loc[1, "NoncurrentLiabilities(固定負債)"] if prior_df.loc[1, "NoncurrentLiabilities(固定負債)"] != None else 0
 
             data = (
-                f"Prior: CurrentLiabilities: {p_cl}, NoncurrentLiabilities: {p_ncl}, CurrentAssets: {p_cs}, NoncurrentAssets: {p_ncs}, NetAssets: {p_na}\n"
+                f"Prior: CurrentLiabilities: {p_cl}, NoncurrentLiabilities: {p_ncl}, CurrentAssets: {p_cs}, NoncurrentAssets: {p_ncs}, NetAssets: {p_na} "
                 f"Current: CurrentLiabilities: {c_cl}, NoncurrentLiabilities: {c_ncl}, CurrentAssets: {c_cs}, NoncurrentAssets: {c_ncs}, NetAssets: {c_na}"
                 )
         else:
