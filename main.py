@@ -7,6 +7,7 @@ import argparse
 import pandas as pd
 import warnings
 from pathlib import Path
+from cal import *
 
 
 def parse_args() -> argparse:
@@ -118,6 +119,8 @@ if __name__ == '__main__':
 
     finance_csv_list = get_data_utilis.get_finance_data(search_data)
     result_list = display_bs(finance_csv_list, args.individual)
+    cal_results(result_list)
 
     agent = LLMAnalyzer(HF_API_KEY)
+    print(f"\n--- Analyzing Balance Sheet Data ---")
     agent.agent_analyze(result_list)

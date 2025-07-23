@@ -3,18 +3,29 @@ import transformers
 from transformers import (
     pipeline,
     AutoTokenizer,
+    BitsAndBytesConfig,
     AutoModelForCausalLM,
 )
 from langchain.chains import LLMChain
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.output_parsers import StrOutputParser
 from langchain_huggingface import HuggingFacePipeline
+from langchain.agents import AgentExecutor, create_react_agent
+from langchain_community.utilities import DuckDuckGoSearchAPIWrapper
+from langchain_community.tools import DuckDuckGoSearchResults
+from langchain_core.tools import Tool
 
 
 class LLMAnalyzer:
     def __init__(self, HF_API: str, model_id: str = 'tarun7r/Finance-Llama-8B') -> None:
         self.api = HF_API
         self.model_id = model_id
+
+        quantization_config = BitsAndBytesConfig(
+            load_in_4bit=True,  # 4bitのQuantizationの有効化
+            bnb_4bit_quant_type="nf4",  # 4bitのQuantizationのタイプ (fp4 or nf4)
+            bnb_4bit_compute_dtype=torch.bfloat16,  # 4bitのQuantizationのdtype (float16 or bfloat16)
+            bnb_4bit_use_double_quant=True,  # 4bitのDouble-Quantizationの有効化
+        )
 
         # モデルのロード
         self.model_config = transformers.AutoConfig.from_pretrained(
@@ -27,6 +38,7 @@ class LLMAnalyzer:
             trust_remote_code=True,
             torch_dtype=torch.float16,
             config=self.model_config,
+            quantization_config = quantization_config,
             device_map='auto',
             token=self.api,
             low_cpu_mem_usage=True,
@@ -53,18 +65,84 @@ class LLMAnalyzer:
 
 
     def agent_analyze(self, df_list: list) -> None:
-        prompt_template = ChatPromptTemplate([
-            {"role": "system", "content": "You are a highly knowledgeable finance chatbot. Your purpose is to provide accurate, insightful, and actionable financial advice to users, tailored to their specific needs and contexts."},
-            {"role": "user", "content": "Analyze this company's balance sheet: {data}"}
+        def search_web_news(query: str) -> str:
+            """Performs a DuckDuckGo news search for the given query in Japanese, daily results, max 2."""
+            wrapper = DuckDuckGoSearchAPIWrapper(region="jp-jp", time="d", max_results=2)
+            engine = DuckDuckGoSearchResults(api_wrapper=wrapper, backend="news")
+            return engine.invoke(f"{query}")
+
+        def calculate_debt_to_equity_ratio(total_debt: float, total_equity: float) -> str:
+            """
+            Calculates the Debt-to-Equity (D/E) ratio.
+            The D/E ratio is a financial ratio indicating the relative proportion of shareholders' equity and debt used to finance a company's assets.
+            A higher ratio indicates more debt financing, which can imply higher risk.
+            Input: total_debt (float), total_equity (float)
+            Returns: The Debt-to-Equity ratio as a string, or an error message if total_equity is zero.
+            """
+            if total_equity == 0:
+                return "Error: Cannot calculate Debt-to-Equity ratio, Total Equity is zero."
+            ratio = total_debt / total_equity
+            return f"Debt-to-Equity Ratio: {ratio:.2f}"
+
+        tool_search_news = Tool(
+            name="news_search",
+            func=search_web_news,
+            description="Tool to perform a DuckDuckGo news search. "
+                        "Useful for current events or recent information. "
+                        "Input should be a search query string. Returns up to 2 news results."
+        )
+
+        tool_debt_to_equity_calculator = Tool(
+            name="debt_to_equity_calculator",
+            func=calculate_debt_to_equity_ratio,
+            description="Tool to calculate the Debt-to-Equity (D/E) ratio."
+                        " Useful for assessing a company's financial leverage."
+                        " Input should be 'total_debt' (float) and 'total_equity' (float). Returns the D/E ratio."
+        )
+
+        tools = [tool_search_news, tool_debt_to_equity_calculator]
+
+        prompt_template = ChatPromptTemplate.from_messages([
+            ("system", """
+            You are a highly knowledgeable finance chatbot. Your purpose is to provide accurate, insightful,
+            and actionable financial advice to users, tailored to their specific needs and contexts.
+
+            Available tools: {tools}
+            Available tool names: {tool_names}
+            
+            Responses should always follow this format:
+            Question: The question the user wants to answer
+            Thought: Think about what to do to answer the question
+            Action: The tool to use (must be one of the available tools)
+            Action Input: Input to the tool
+            Observation: Result of the tool
+        
+            ...(Thought/Action/Action Input/Observation can be repeated once at most to answer the question)
+            Thought: Determine that it's time to provide the final answer to the user
+            Final Answer: The final answer to the user
+            """),
+
+            ("user", "Analyze this company's balance sheet: {data}\n{agent_scratchpad}")
         ])
 
-        chain = (prompt_template
-                 | self.llm
-                 | StrOutputParser()
-                 )
+        agent = create_react_agent(self.llm, tools, prompt_template)
+
+        agent_executor = AgentExecutor(
+            agent=agent,
+            tools=tools,
+            verbose=True,  # Keep verbose=True to ensure intermediate steps are printed to stdout
+            handle_parsing_errors=True
+        )
+
         data = self.get_data_from_csv(df_list)
 
-        print(chain.invoke({"data": data}))
+        print("\n--- Agent's Reasoning Process ---")
+
+        result = agent_executor.invoke({"data": data})
+
+        print("\n--- Final Answer ---")
+        print(result['output'])
+        print("\n" + "=" * 80 + "\n")
 
 
     def get_data_from_csv(self, df_list: list) -> str:

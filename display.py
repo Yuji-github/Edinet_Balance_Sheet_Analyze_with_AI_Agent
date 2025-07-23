@@ -6,11 +6,11 @@ from pathlib import Path
 
 def display_bs(balance_sheet_list:Tuple[Path, Path], individual:bool = True) -> list:
     data = {"Name": ['Assets(資産)', 'Liabilities(負債)'],
-            'CurrentLiabilities(流動負債)': [0, 0],
-            'NoncurrentLiabilities(固定負債)': [0, 0],
-            'CurrentAssets(流動資産)': [0, 0],
-            'NoncurrentAssets(固定資産)': [0, 0],
             'NetAssets(純資産)': [0, 0],
+            'NoncurrentLiabilities(固定負債)': [0, 0],
+            'CurrentLiabilities(流動負債)': [0, 0],
+            'NoncurrentAssets(固定資産)': [0, 0],
+            'CurrentAssets(流動資産)': [0, 0],
             }
 
     bs_csv_list = []
