@@ -3,7 +3,6 @@ import transformers
 from transformers import (
     pipeline,
     AutoTokenizer,
-    BitsAndBytesConfig,
     AutoModelForCausalLM,
 )
 from langchain.chains import LLMChain
@@ -20,13 +19,6 @@ class LLMAnalyzer:
         self.api = HF_API
         self.model_id = model_id
 
-        quantization_config = BitsAndBytesConfig(
-            load_in_4bit=True,  # 4bitのQuantizationの有効化
-            bnb_4bit_quant_type="nf4",  # 4bitのQuantizationのタイプ (fp4 or nf4)
-            bnb_4bit_compute_dtype=torch.bfloat16,  # 4bitのQuantizationのdtype (float16 or bfloat16)
-            bnb_4bit_use_double_quant=True,  # 4bitのDouble-Quantizationの有効化
-        )
-
         # モデルのロード
         self.model_config = transformers.AutoConfig.from_pretrained(
             model_id,
@@ -38,10 +30,9 @@ class LLMAnalyzer:
             trust_remote_code=True,
             torch_dtype=torch.float16,
             config=self.model_config,
-            quantization_config = quantization_config,
             device_map='auto',
             token=self.api,
-            low_cpu_mem_usage=True,
+            low_cpu_mem_usage=True, # if true, create multiple processes or threads to handle loading and offloading -> slow
             weights_only=True
         )
 
@@ -59,6 +50,8 @@ class LLMAnalyzer:
             "text-generation",
             model=self.model,
             tokenizer=self.tokenizer,
+            max_new_tokens=512,
+            temperature=0.5,
         )
 
         self.llm = HuggingFacePipeline(pipeline=self.generator)
@@ -117,7 +110,7 @@ class LLMAnalyzer:
             Action Input: Input to the tool
             Observation: Result of the tool
         
-            ...(Thought/Action/Action Input/Observation can be repeated once at most to answer the question)
+            ...(Thought/Action/Action Input/Observation can be repeated as many times as necessary to answer the question)
             Thought: Determine that it's time to provide the final answer to the user
             Final Answer: The final answer to the user
             """),

@@ -121,6 +121,6 @@ if __name__ == '__main__':
     result_list = display_bs(finance_csv_list, args.individual)
     cal_results(result_list)
 
-    agent = LLMAnalyzer(HF_API_KEY)
     print(f"\n--- Analyzing Balance Sheet Data ---")
+    agent = LLMAnalyzer(HF_API_KEY)
     agent.agent_analyze(result_list)
